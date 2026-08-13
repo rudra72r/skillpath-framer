@@ -26,13 +26,12 @@ with no way back.
 
 **AI**
 
-Both chats linked on the submission form. I worked the problem out in ChatGPT
-first — minor units, why two independent calls should not share a `Promise.all`,
-what a CORS preflight costs on an API that already fails a third of the time.
-Claude then wrote the implementation against those decisions. I directed and
-reviewed rather than typed, and the API was measured before the retry count was
-picked.
+ChatGPT chat linked; I worked the problem out there first — minor units, why two
+independent calls should not share a `Promise.all`, what a preflight costs on an
+API failing a third of the time. Claude Code wrote the implementation and does not
+produce shareable chat links, so its commits carry co-author trailers and I can
+send the full transcript on request.
 
 ---
 
-*197 words.*
+*195 words.*
