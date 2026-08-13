@@ -71,7 +71,13 @@ function Preview() {
     React.createElement("div", { className: "panel" },
       React.createElement("div", { className: "panel-row" },
         React.createElement("span", { className: "panel-label" }, "Preview harness"),
-        React.createElement("span", { className: "panel-note" }, "Not part of the component — this page wraps fetch to force each state.")
+        React.createElement("span", { className: "panel-note" }, "Not part of the component — this page wraps fetch to force each state."),
+        React.createElement("a", {
+          className: "repo-link",
+          href: "https://github.com/rudra72r/skillpath-framer",
+          target: "_blank",
+          rel: "noopener noreferrer",
+        }, "View source ↗")
       ),
       React.createElement("div", { className: "panel-row" },
         MODES.map(m =>
@@ -173,6 +179,12 @@ body {
 .chip-on { background: #F7F6F3; color: #12100E; border-color: #F7F6F3; }
 .chip-reload { margin-left: 4px; }
 
+.repo-link {
+  margin-left: auto; font-size: 12.5px; color: #F7F6F3; opacity: 0.62;
+  text-decoration: none; border-bottom: 1px solid rgba(247,246,243,0.3);
+}
+.repo-link:hover { opacity: 1; }
+
 .swatch {
   display: inline-flex; align-items: center; gap: 7px; margin-left: auto;
   font-size: 12.5px; opacity: 0.8;
@@ -208,7 +220,9 @@ async function main() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Skillpath — local preview</title>
+<title>Skillpath — courses section, live data</title>
+<meta name="description" content="A Framer code component that pulls live course data from a deliberately unreliable API. Every failure state can be triggered from the bar at the top.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%93%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://syncsphere-hiv6.onrender.com">
 <style>${CSS}</style>
 </head>
