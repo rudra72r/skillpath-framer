@@ -1,0 +1,12 @@
+node_modules/
+
+# Scratch directories the test harnesses create and clean up themselves.
+.verify-tmp/
+.render-tmp/
+
+# Superseded by docs/index.html, which is what GitHub Pages serves.
+preview.html
+
+# Private working files — not part of the deliverable.
+HANDOVER.md
+submission.html

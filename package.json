@@ -1,0 +1,20 @@
+{
+  "name": "skillpath-courses",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node render-test.mjs",
+    "verify": "node verify.mjs",
+    "preview": "node build-preview.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Framer code component for the Skillpath courses section",
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsdom": "^25.0.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
+}

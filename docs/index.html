@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skillpath — local preview</title>
+<link rel="preconnect" href="https://syncsphere-hiv6.onrender.com">
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #F7F6F3;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #12100E;
+}
+
+.panel {
+  position: sticky; top: 0; z-index: 50;
+  background: #12100E; color: #F7F6F3;
+  padding: 12px clamp(16px, 4vw, 56px);
+  display: flex; flex-direction: column; gap: 9px;
+}
+.panel-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.panel-label { font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+.panel-note { font-size: 12px; opacity: 0.55; }
+.panel-hint { margin: 0; font-size: 12.5px; opacity: 0.68; }
+
+.chip {
+  font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(247,246,243,0.22); background: transparent; color: #F7F6F3;
+  transition: background 0.15s ease;
+}
+.chip:hover { background: rgba(247,246,243,0.10); }
+.chip-on { background: #F7F6F3; color: #12100E; border-color: #F7F6F3; }
+.chip-reload { margin-left: 4px; }
+
+.swatch {
+  display: inline-flex; align-items: center; gap: 7px; margin-left: auto;
+  font-size: 12.5px; opacity: 0.8;
+}
+.swatch input { width: 30px; height: 24px; padding: 0; border: none; background: none; cursor: pointer; }
+
+.page { max-width: 1240px; margin: 0 auto; }
+.band { padding: 0 clamp(20px, 5vw, 56px); }
+.band-hero { padding-top: clamp(56px, 9vw, 104px); padding-bottom: clamp(48px, 7vw, 88px); }
+#courses { padding-bottom: clamp(56px, 8vw, 96px); scroll-margin-top: 90px; }
+.band-footer { padding-bottom: 44px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script>
+// Wraps fetch so each failure state can be demonstrated on demand. This is
+// harness scaffolding for local review only; the components know nothing about it.
+(function () {
+  let mode = "live";
+  window.__setFaultMode = next => { mode = next; };
+
+  const realFetch = window.fetch.bind(window);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  const fail = status => new Response(JSON.stringify({ error: "Injected fault" }), {
+    status, headers: { "Content-Type": "application/json" },
+  });
+  const emptyList = () => new Response("[]", {
+    status: 200, headers: { "Content-Type": "application/json" },
+  });
+
+  window.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input.url;
+    const isCourses = url.includes("/assignment/course-data");
+    const isCountry = url.includes("/assignment/country-code");
+
+    if (!isCourses && !isCountry) return realFetch(input, init);
+
+    if (mode === "slow") await wait(2500);
+    if (mode === "courses-error" && isCourses) return fail(500);
+    if (mode === "country-error" && isCountry) return fail(500);
+    if (mode === "both-error") return fail(500);
+    if (mode === "empty" && isCourses) return emptyList();
+
+    return realFetch(input, init);
+  };
+})();
+</script>
+<script>/* ---- SkillpathHero.tsx ---- */
+(function() {
+  const { useLayoutEffect, useEffect } = React;
+  const addPropertyControls = () => {
+  }, ControlType = new Proxy({}, { get: () => "stub" });
+  const STYLE_ID = "skillpath-hero-styles";
+  const STYLES = `
+.sph-root {
+  --sph-ink: #12100E;
+  --sph-muted: #6B6560;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--sph-ink);
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 22px;
+  -webkit-font-smoothing: antialiased;
+}
+.sph-root *, .sph-root *::before, .sph-root *::after { box-sizing: border-box; }
+
+.sph-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--sph-accent); background: var(--sph-accent-soft);
+  padding: 7px 14px; border-radius: 999px;
+}
+.sph-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* clamp() keeps the headline readable from 320px to 1600px with no breakpoints
+   and nothing to break in between. */
+.sph-headline {
+  font-size: clamp(34px, 6vw, 68px);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+  margin: 0;
+  max-width: 18ch;
+  text-wrap: balance;
+}
+.sph-sub {
+  font-size: clamp(16px, 1.7vw, 19px);
+  line-height: 1.55;
+  color: var(--sph-muted);
+  margin: 0;
+  max-width: 54ch;
+  text-wrap: pretty;
+}
+
+.sph-cta {
+  font: inherit; font-size: 15.5px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 9px;
+  height: 52px; padding: 0 28px; border-radius: 12px; margin-top: 6px;
+  border: 1px solid var(--sph-accent); background: var(--sph-accent); color: #fff;
+  text-decoration: none;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+  box-shadow: 0 10px 24px -10px var(--sph-accent-shadow);
+}
+.sph-cta:hover { transform: translateY(-2px); opacity: 0.94; }
+.sph-cta:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--sph-accent-soft); }
+.sph-arrow { transition: transform 0.16s ease; }
+.sph-cta:hover .sph-arrow { transform: translateX(3px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sph-root *, .sph-root *::before, .sph-root *::after { transition: none !important; }
+  .sph-cta:hover { transform: none; }
+  .sph-cta:hover .sph-arrow { transform: none; }
+}
+`;
+  const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+  function useStyleSheet() {
+    useIsomorphicLayoutEffect(() => {
+      if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
+      const tag = document.createElement("style");
+      tag.id = STYLE_ID;
+      tag.textContent = STYLES;
+      document.head.appendChild(tag);
+    }, []);
+  }
+  function withAlpha(color, alpha) {
+    const value = color.trim();
+    const hex = value.match(/^#([0-9a-f]{3,8})$/i)?.[1];
+    if (hex && (hex.length === 3 || hex.length === 6 || hex.length === 8)) {
+      const full = hex.length === 3 ? hex.replace(/./g, (char) => char + char) : hex;
+      const red = parseInt(full.slice(0, 2), 16);
+      const green = parseInt(full.slice(2, 4), 16);
+      const blue = parseInt(full.slice(4, 6), 16);
+      const baseAlpha = full.length === 8 ? parseInt(full.slice(6, 8), 16) / 255 : 1;
+      return `rgba(${red}, ${green}, ${blue}, ${(alpha * baseAlpha).toFixed(3)})`;
+    }
+    const channels = value.match(/^rgba?\(([^)]+)\)$/i)?.[1];
+    if (channels) {
+      const parts = channels.split(/[\s,/]+/).filter(Boolean);
+      if (parts.length >= 3) {
+        const baseAlpha = parts.length > 3 ? parseFloat(parts[3]) : 1;
+        return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${(alpha * baseAlpha).toFixed(3)})`;
+      }
+    }
+    return `color-mix(in srgb, ${value} ${Math.round(alpha * 100)}%, transparent)`;
+  }
+  function SkillpathHero({
+    eyebrow = "Now enrolling",
+    headline = "Learn the skill. Then actually use it.",
+    subheadline = "Short, practical courses that end with something you have built \u2014 not a certificate you file away and forget.",
+    buttonLabel = "Browse courses",
+    buttonLink = "#courses",
+    accentColor = "#4F3CE8",
+    style
+  }) {
+    useStyleSheet();
+    const rootStyle = {
+      ...style,
+      ["--sph-accent"]: accentColor,
+      ["--sph-accent-soft"]: withAlpha(accentColor, 0.12),
+      ["--sph-accent-shadow"]: withAlpha(accentColor, 0.55)
+    };
+    return /* @__PURE__ */ React.createElement("section", { className: "sph-root", style: rootStyle }, eyebrow && /* @__PURE__ */ React.createElement("span", { className: "sph-eyebrow" }, /* @__PURE__ */ React.createElement("span", { className: "sph-dot" }), eyebrow), /* @__PURE__ */ React.createElement("h1", { className: "sph-headline" }, headline), /* @__PURE__ */ React.createElement("p", { className: "sph-sub" }, subheadline), /* @__PURE__ */ React.createElement("a", { className: "sph-cta", href: buttonLink || "#courses" }, buttonLabel, /* @__PURE__ */ React.createElement("svg", { className: "sph-arrow", width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("path", { d: "M5 12h14M13 6l6 6-6 6" }))));
+  }
+  addPropertyControls(SkillpathHero, {
+    accentColor: { type: ControlType.Color, title: "Accent", defaultValue: "#4F3CE8" },
+    eyebrow: { type: ControlType.String, title: "Eyebrow", defaultValue: "Now enrolling" },
+    headline: {
+      type: ControlType.String,
+      title: "Headline",
+      displayTextArea: true,
+      defaultValue: "Learn the skill. Then actually use it."
+    },
+    subheadline: {
+      type: ControlType.String,
+      title: "Subheadline",
+      displayTextArea: true,
+      defaultValue: "Short, practical courses that end with something you have built \u2014 not a certificate you file away and forget."
+    },
+    buttonLabel: { type: ControlType.String, title: "Button", defaultValue: "Browse courses" },
+    buttonLink: { type: ControlType.Link, title: "Button Link" }
+  });
+  window.SkillpathHero = SkillpathHero;
+})();
+
+
+/* ---- SkillpathCourses.tsx ---- */
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+(function() {
+  const { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } = React;
+  const addPropertyControls = () => {
+  }, ControlType = new Proxy({}, { get: () => "stub" });
+  const API_BASE = "https://syncsphere-hiv6.onrender.com";
+  const REQUEST_TIMEOUT_MS = 15e3;
+  const MAX_ATTEMPTS = 4;
+  const BASE_BACKOFF_MS = 400;
+  const BREAKPOINT_3_COL = 1024;
+  const BREAKPOINT_2_COL = 680;
+  const REGIONS = {
+    IN: { locale: "en-IN", currency: "INR", minorField: "pricePaise", label: "India", symbol: "\u20B9" },
+    US: { locale: "en-US", currency: "USD", minorField: "priceUsdCents", label: "United States", symbol: "$" }
+  };
+  class ApiError extends Error {
+    constructor(message, status, retryable) {
+      super(message);
+      __publicField(this, "status");
+      __publicField(this, "retryable");
+      this.name = "ApiError";
+      this.status = status;
+      this.retryable = retryable;
+    }
+  }
+  function isAbortError(error) {
+    return error instanceof Error && error.name === "AbortError";
+  }
+  function isRetryableStatus(status) {
+    if (status === 404) return true;
+    if (status >= 500) return true;
+    return false;
+  }
+  function backoffDelay(attempt) {
+    const ceiling = BASE_BACKOFF_MS * 2 ** (attempt - 1);
+    return Math.random() * ceiling;
+  }
+  function sleep(ms, signal) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, ms);
+      signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer);
+          reject(new DOMException("Aborted", "AbortError"));
+        },
+        { once: true }
+      );
+    });
+  }
+  async function getJsonOnce(path, signal) {
+    const controller = new AbortController();
+    const abortFromCaller = () => controller.abort();
+    signal.addEventListener("abort", abortFromCaller, { once: true });
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${API_BASE}${path}`, {
+        method: "GET",
+        // Every other verb returns 405. Nothing here mutates anything.
+        // No custom headers, on purpose. Adding even one would make this a
+        // non-simple CORS request and put a preflight OPTIONS in front of
+        // every call. When one request in three already fails, doubling the
+        // number of requests is the wrong trade for headers we do not need.
+        cache: "no-store",
+        // /country-code flips per call; a cached copy would freeze it.
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        throw new ApiError(
+          `Request failed with status ${response.status}`,
+          response.status,
+          isRetryableStatus(response.status)
+        );
+      }
+      return await response.json();
+    } catch (error) {
+      if (isAbortError(error) && timedOut) {
+        throw new ApiError("Request timed out", 0, true);
+      }
+      if (isAbortError(error)) throw error;
+      if (error instanceof ApiError) throw error;
+      throw new ApiError("Could not reach the server", 0, true);
+    } finally {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", abortFromCaller);
+    }
+  }
+  async function getJson(path, signal) {
+    let lastError;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        return await getJsonOnce(path, signal);
+      } catch (error) {
+        if (isAbortError(error)) throw error;
+        if (error instanceof ApiError && !error.retryable) throw error;
+        lastError = error;
+        if (attempt < MAX_ATTEMPTS) {
+          await sleep(backoffDelay(attempt), signal);
+        }
+      }
+    }
+    throw lastError;
+  }
+  function isNonEmptyString(value) {
+    return typeof value === "string" && value.trim().length > 0;
+  }
+  function isRenderableCourse(value) {
+    if (typeof value !== "object" || value === null) return false;
+    const course = value;
+    return isNonEmptyString(course.courseName) && isNonEmptyString(course.courseCode);
+  }
+  function parseCourses(raw) {
+    if (!Array.isArray(raw)) {
+      throw new ApiError("The server sent data in an unexpected format", 0, false);
+    }
+    return raw.filter(isRenderableCourse).map((course) => ({
+      courseName: course.courseName,
+      courseCode: course.courseCode,
+      description: isNonEmptyString(course.description) ? course.description : "",
+      mainCategory: isNonEmptyString(course.mainCategory) ? course.mainCategory : "",
+      courseType: isNonEmptyString(course.courseType) ? course.courseType : "",
+      pricePaise: typeof course.pricePaise === "number" ? course.pricePaise : NaN,
+      priceUsdCents: typeof course.priceUsdCents === "number" ? course.priceUsdCents : NaN,
+      refundable: course.refundable === true
+    }));
+  }
+  function parseRegion(raw) {
+    const code = raw?.country_code;
+    if (code === "IN" || code === "US") return code;
+    throw new ApiError("The server sent an unrecognised country code", 0, false);
+  }
+  function createPriceFormatter(region) {
+    const { locale, currency } = REGIONS[region];
+    const whole = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+    const fractional = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return (minorUnits) => {
+      if (typeof minorUnits !== "number" || !Number.isFinite(minorUnits) || minorUnits < 0) {
+        return null;
+      }
+      const formatter = minorUnits % 100 === 0 ? whole : fractional;
+      return formatter.format(minorUnits / 100);
+    };
+  }
+  function priceFor(course, region) {
+    return region === "IN" ? course.pricePaise : course.priceUsdCents;
+  }
+  function withAlpha(color, alpha) {
+    const value = color.trim();
+    const hex = value.match(/^#([0-9a-f]{3,8})$/i)?.[1];
+    if (hex && (hex.length === 3 || hex.length === 6 || hex.length === 8)) {
+      const full = hex.length === 3 ? hex.replace(/./g, (char) => char + char) : hex;
+      const red = parseInt(full.slice(0, 2), 16);
+      const green = parseInt(full.slice(2, 4), 16);
+      const blue = parseInt(full.slice(4, 6), 16);
+      const baseAlpha = full.length === 8 ? parseInt(full.slice(6, 8), 16) / 255 : 1;
+      return `rgba(${red}, ${green}, ${blue}, ${(alpha * baseAlpha).toFixed(3)})`;
+    }
+    const channels = value.match(/^rgba?\(([^)]+)\)$/i)?.[1];
+    if (channels) {
+      const parts = channels.split(/[\s,/]+/).filter(Boolean);
+      if (parts.length >= 3) {
+        const baseAlpha = parts.length > 3 ? parseFloat(parts[3]) : 1;
+        return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${(alpha * baseAlpha).toFixed(3)})`;
+      }
+    }
+    return `color-mix(in srgb, ${value} ${Math.round(alpha * 100)}%, transparent)`;
+  }
+  function useSkillpathData() {
+    const [courses, setCourses] = useState({ status: "loading", items: [], error: null });
+    const [region, setRegion] = useState({ status: "loading", code: null, attempted: false });
+    const coursesAbort = useRef(null);
+    const regionAbort = useRef(null);
+    const loadCourses = useCallback(async () => {
+      coursesAbort.current?.abort();
+      const controller = new AbortController();
+      coursesAbort.current = controller;
+      setCourses((previous) => ({ ...previous, status: "loading", error: null }));
+      try {
+        const items = parseCourses(await getJson("/assignment/course-data", controller.signal));
+        setCourses({ status: "ready", items, error: null });
+      } catch (error) {
+        if (isAbortError(error)) return;
+        setCourses({
+          status: "error",
+          items: [],
+          error: error instanceof ApiError ? error : new ApiError("Something went wrong", 0, true)
+        });
+      }
+    }, []);
+    const loadRegion = useCallback(async () => {
+      regionAbort.current?.abort();
+      const controller = new AbortController();
+      regionAbort.current = controller;
+      setRegion((previous) => ({ ...previous, status: "loading" }));
+      try {
+        const code = parseRegion(await getJson("/assignment/country-code", controller.signal));
+        setRegion({ status: "ready", code, attempted: true });
+      } catch (error) {
+        if (isAbortError(error)) return;
+        setRegion({ status: "error", code: null, attempted: true });
+      }
+    }, []);
+    useEffect(() => {
+      loadCourses();
+      loadRegion();
+      return () => {
+        coursesAbort.current?.abort();
+        regionAbort.current?.abort();
+      };
+    }, [loadCourses, loadRegion]);
+    return { courses, region, loadCourses, loadRegion };
+  }
+  const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+  function useColumnCount(ref) {
+    const [columns, setColumns] = useState(3);
+    useIsomorphicLayoutEffect(() => {
+      const element = ref.current;
+      if (!element || typeof ResizeObserver === "undefined") return;
+      const observer = new ResizeObserver(([entry]) => {
+        const width = entry.contentRect.width;
+        const next = width >= BREAKPOINT_3_COL ? 3 : width >= BREAKPOINT_2_COL ? 2 : 1;
+        setColumns((current) => current === next ? current : next);
+      });
+      observer.observe(element);
+      return () => observer.disconnect();
+    }, [ref]);
+    return columns;
+  }
+  const STYLE_ID = "skillpath-courses-styles";
+  const STYLES = `
+.sp-root {
+  --sp-ink: #12100E;
+  --sp-muted: #6B6560;
+  --sp-line: rgba(18, 16, 14, 0.10);
+  --sp-surface: #FFFFFF;
+  --sp-radius: 16px;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--sp-ink);
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+.sp-root *, .sp-root *::before, .sp-root *::after { box-sizing: border-box; }
+
+.sp-head { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.sp-title { font-size: clamp(28px, 3.4vw, 42px); line-height: 1.12; letter-spacing: -0.028em; font-weight: 700; margin: 0; }
+.sp-subtitle { font-size: clamp(15px, 1.3vw, 17px); line-height: 1.55; color: var(--sp-muted); margin: 0; max-width: 60ch; }
+
+.sp-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 24px; }
+.sp-search { position: relative; flex: 1 1 260px; min-width: 0; }
+.sp-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--sp-muted); pointer-events: none; display: flex; }
+.sp-input, .sp-select {
+  width: 100%; height: 44px; border-radius: 10px; border: 1px solid var(--sp-line);
+  background: var(--sp-surface); color: var(--sp-ink); font: inherit; font-size: 15px;
+  padding: 0 14px; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.sp-input { padding-left: 42px; }
+.sp-select { width: auto; min-width: 168px; cursor: pointer; padding-right: 32px;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 18px) 19px, calc(100% - 13px) 19px;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+.sp-input:focus-visible, .sp-select:focus-visible { border-color: var(--sp-accent); box-shadow: 0 0 0 3px var(--sp-accent-soft); }
+.sp-input::placeholder { color: var(--sp-muted); }
+
+.sp-grid { display: grid; gap: 20px; align-items: stretch; }
+
+.sp-card {
+  display: flex; flex-direction: column; height: 100%;
+  background: var(--sp-surface); border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius); padding: 22px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.sp-card:hover { transform: translateY(-3px); border-color: var(--sp-accent-line); box-shadow: 0 12px 28px -12px rgba(18, 16, 14, 0.18); }
+
+.sp-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.sp-pill {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; line-height: 1;
+  padding: 6px 10px; border-radius: 999px; white-space: nowrap;
+  color: var(--sp-accent); background: var(--sp-accent-soft);
+}
+.sp-pill-refund { color: #0F7B4F; background: rgba(15, 123, 79, 0.10); display: inline-flex; align-items: center; gap: 4px; }
+
+.sp-name { font-size: 18px; line-height: 1.3; letter-spacing: -0.015em; font-weight: 650; margin: 0 0 8px; }
+
+/* Two lines, then a real ellipsis. min-height reserves the second line so a
+   short description does not shift the price row out of alignment. */
+.sp-desc {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; font-size: 14.5px; line-height: 1.55; color: var(--sp-muted);
+  margin: 0 0 20px; min-height: calc(2 * 1.55 * 14.5px);
+}
+
+/* margin-top:auto pins the price to the bottom, so prices line up across a row
+   no matter how tall the text above them is. */
+.sp-foot { margin-top: auto; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid var(--sp-line); }
+.sp-price { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
+.sp-price-missing { font-size: 14px; font-weight: 500; color: var(--sp-muted); }
+.sp-type { font-size: 12px; font-weight: 550; color: var(--sp-muted); white-space: nowrap; }
+
+.sp-btn {
+  font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer;
+  height: 42px; padding: 0 18px; border-radius: 10px;
+  border: 1px solid var(--sp-accent); background: var(--sp-accent); color: #fff;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
+}
+.sp-btn:hover { opacity: 0.88; }
+.sp-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--sp-accent-soft); }
+.sp-btn-ghost { background: transparent; color: var(--sp-ink); border-color: var(--sp-line); }
+.sp-btn-sm { height: 34px; padding: 0 13px; font-size: 13px; border-radius: 8px; }
+.sp-btn[disabled] { opacity: 0.55; cursor: default; }
+
+.sp-panel {
+  border: 1px solid var(--sp-line); border-radius: var(--sp-radius);
+  background: var(--sp-surface); padding: 44px 28px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.sp-panel-title { font-size: 18px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+.sp-panel-body { font-size: 14.5px; line-height: 1.55; color: var(--sp-muted); margin: 0; max-width: 44ch; }
+.sp-panel-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
+
+.sp-notice {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  border: 1px solid var(--sp-line); border-left: 3px solid #C2822A;
+  background: rgba(194, 130, 42, 0.055);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;
+}
+.sp-notice-text { font-size: 13.5px; line-height: 1.5; color: var(--sp-ink); margin: 0; flex: 1 1 260px; }
+.sp-notice-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.sp-count { font-size: 13px; color: var(--sp-muted); margin: 0 0 16px; }
+
+/* Skeletons mirror the real card's geometry so the grid does not jump when the
+   data lands. */
+.sp-skeleton { pointer-events: none; }
+.sp-bone { border-radius: 6px; background: linear-gradient(90deg, rgba(18,16,14,0.055) 25%, rgba(18,16,14,0.10) 37%, rgba(18,16,14,0.055) 63%); background-size: 400% 100%; animation: sp-shimmer 1.35s ease-in-out infinite; }
+
+@keyframes sp-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-root *, .sp-root *::before, .sp-root *::after { animation: none !important; transition: none !important; }
+  .sp-card:hover { transform: none; }
+}
+
+.sp-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+`;
+  function useStyleSheet() {
+    useIsomorphicLayoutEffect(() => {
+      if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
+      const tag = document.createElement("style");
+      tag.id = STYLE_ID;
+      tag.textContent = STYLES;
+      document.head.appendChild(tag);
+    }, []);
+  }
+  function SearchIcon() {
+    return /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "7" }), /* @__PURE__ */ React.createElement("path", { d: "M20 20l-3.5-3.5" }));
+  }
+  function CheckIcon() {
+    return /* @__PURE__ */ React.createElement("svg", { width: "11", height: "11", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "3.2", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6L9 17l-5-5" }));
+  }
+  function SkeletonCard() {
+    return /* @__PURE__ */ React.createElement("div", { className: "sp-card sp-skeleton", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("div", { className: "sp-tags" }, /* @__PURE__ */ React.createElement("div", { className: "sp-bone", style: { width: 92, height: 22, borderRadius: 999 } })), /* @__PURE__ */ React.createElement("div", { className: "sp-bone", style: { width: "72%", height: 18, marginBottom: 12 } }), /* @__PURE__ */ React.createElement("div", { className: "sp-bone", style: { width: "100%", height: 12, marginBottom: 8 } }), /* @__PURE__ */ React.createElement("div", { className: "sp-bone", style: { width: "84%", height: 12, marginBottom: 28 } }), /* @__PURE__ */ React.createElement("div", { className: "sp-foot" }, /* @__PURE__ */ React.createElement("div", { className: "sp-bone", style: { width: 78, height: 22 } }), /* @__PURE__ */ React.createElement("div", { className: "sp-bone", style: { width: 54, height: 13 } })));
+  }
+  function CourseCard({ course, region, formatPrice }) {
+    const price = formatPrice(priceFor(course, region));
+    return /* @__PURE__ */ React.createElement("article", { className: "sp-card" }, /* @__PURE__ */ React.createElement("div", { className: "sp-tags" }, course.mainCategory && /* @__PURE__ */ React.createElement("span", { className: "sp-pill" }, course.mainCategory), course.refundable && /* @__PURE__ */ React.createElement("span", { className: "sp-pill sp-pill-refund" }, /* @__PURE__ */ React.createElement(CheckIcon, null), "Refundable")), /* @__PURE__ */ React.createElement("h3", { className: "sp-name" }, course.courseName), /* @__PURE__ */ React.createElement("p", { className: "sp-desc" }, course.description), /* @__PURE__ */ React.createElement("div", { className: "sp-foot" }, price ? /* @__PURE__ */ React.createElement("span", { className: "sp-price" }, price) : (
+      // A single broken price should not take out the card.
+      /* @__PURE__ */ React.createElement("span", { className: "sp-price-missing" }, "Price unavailable")
+    ), course.courseType && /* @__PURE__ */ React.createElement("span", { className: "sp-type" }, course.courseType)));
+  }
+  function SkillpathCourses({
+    title = "Courses built to be finished",
+    subtitle = "Practical, self-paced programmes taught by people who do the work. Live pricing, updated for your region.",
+    accentColor = "#4F3CE8",
+    fallbackRegion = "IN",
+    maxCourses = 0,
+    showSearch = true,
+    showSort = true,
+    style
+  }) {
+    useStyleSheet();
+    const rootRef = useRef(null);
+    const columns = useColumnCount(rootRef);
+    const { courses, region, loadCourses, loadRegion } = useSkillpathData();
+    const [query, setQuery] = useState("");
+    const [sortMode, setSortMode] = useState("default");
+    const [manualRegion, setManualRegion] = useState(null);
+    const activeRegion = manualRegion ?? region.code ?? fallbackRegion;
+    const regionIsAssumed = region.attempted && region.code === null;
+    const formatPrice = useMemo(() => createPriceFormatter(activeRegion), [activeRegion]);
+    const visibleCourses = useMemo(() => {
+      const term = query.trim().toLowerCase();
+      let result = term ? courses.items.filter(
+        (course) => course.courseName.toLowerCase().includes(term) || course.mainCategory.toLowerCase().includes(term)
+      ) : courses.items;
+      if (sortMode !== "default") {
+        const direction = sortMode === "price-asc" ? 1 : -1;
+        result = [...result].sort((a, b) => (priceFor(a, activeRegion) - priceFor(b, activeRegion)) * direction);
+      }
+      return maxCourses > 0 ? result.slice(0, maxCourses) : result;
+    }, [courses.items, query, sortMode, activeRegion, maxCourses]);
+    const gridStyle = { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` };
+    const rootStyle = {
+      ...style,
+      // Property-control values reach the stylesheet as variables, so the sheet
+      // itself never has to be rebuilt.
+      ["--sp-accent"]: accentColor,
+      ["--sp-accent-soft"]: withAlpha(accentColor, 0.12),
+      ["--sp-accent-line"]: withAlpha(accentColor, 0.38)
+    };
+    function renderBody() {
+      if (courses.status === "loading") {
+        return /* @__PURE__ */ React.createElement("div", { className: "sp-grid", style: gridStyle }, Array.from({ length: 6 }, (_, index) => /* @__PURE__ */ React.createElement(SkeletonCard, { key: index })));
+      }
+      if (courses.status === "error") {
+        const status = courses.error?.status ?? 0;
+        return /* @__PURE__ */ React.createElement("div", { className: "sp-panel" }, /* @__PURE__ */ React.createElement("h3", { className: "sp-panel-title" }, "We couldn't load the courses"), /* @__PURE__ */ React.createElement("p", { className: "sp-panel-body" }, status >= 500 || status === 0 ? "The course service isn't responding right now. This usually clears up on a retry." : "The course service couldn't find the catalogue just now. This usually clears up on a retry."), /* @__PURE__ */ React.createElement("div", { className: "sp-panel-actions" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "sp-btn", onClick: loadCourses }, "Try again")));
+      }
+      if (courses.items.length === 0) {
+        return /* @__PURE__ */ React.createElement("div", { className: "sp-panel" }, /* @__PURE__ */ React.createElement("h3", { className: "sp-panel-title" }, "No courses yet"), /* @__PURE__ */ React.createElement("p", { className: "sp-panel-body" }, "The catalogue is empty at the moment. New courses are added regularly \u2014 check back soon."), /* @__PURE__ */ React.createElement("div", { className: "sp-panel-actions" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "sp-btn sp-btn-ghost", onClick: loadCourses }, "Refresh")));
+      }
+      if (visibleCourses.length === 0) {
+        return /* @__PURE__ */ React.createElement("div", { className: "sp-panel" }, /* @__PURE__ */ React.createElement("h3", { className: "sp-panel-title" }, 'No matches for "', query.trim(), '"'), /* @__PURE__ */ React.createElement("p", { className: "sp-panel-body" }, 'Try a different course name, or search by category \u2014 "Marketing" or "Productivity", for example.'), /* @__PURE__ */ React.createElement("div", { className: "sp-panel-actions" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "sp-btn sp-btn-ghost", onClick: () => setQuery("") }, "Clear search")));
+      }
+      return /* @__PURE__ */ React.createElement("div", { className: "sp-grid", style: gridStyle }, visibleCourses.map((course) => /* @__PURE__ */ React.createElement(CourseCard, { key: course.courseCode, course, region: activeRegion, formatPrice })));
+    }
+    return /* @__PURE__ */ React.createElement("section", { ref: rootRef, className: "sp-root", style: rootStyle, "aria-label": "Courses" }, /* @__PURE__ */ React.createElement("header", { className: "sp-head" }, /* @__PURE__ */ React.createElement("h2", { className: "sp-title" }, title), subtitle && /* @__PURE__ */ React.createElement("p", { className: "sp-subtitle" }, subtitle)), courses.status === "ready" && regionIsAssumed && /* @__PURE__ */ React.createElement("div", { className: "sp-notice", role: "status" }, /* @__PURE__ */ React.createElement("p", { className: "sp-notice-text" }, "We couldn't confirm your location, so prices are shown in", " ", /* @__PURE__ */ React.createElement("strong", null, REGIONS[activeRegion].symbol, " ", REGIONS[activeRegion].currency), " ", "(", REGIONS[activeRegion].label, ")."), /* @__PURE__ */ React.createElement("div", { className: "sp-notice-actions" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "sp-btn sp-btn-ghost sp-btn-sm", onClick: loadRegion, disabled: region.status === "loading" }, region.status === "loading" ? "Checking\u2026" : "Detect again"), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "sp-btn sp-btn-ghost sp-btn-sm",
+        onClick: () => setManualRegion(activeRegion === "IN" ? "US" : "IN")
+      },
+      "Show in ",
+      activeRegion === "IN" ? "$ USD" : "\u20B9 INR"
+    ))), (showSearch || showSort) && courses.status === "ready" && courses.items.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "sp-toolbar" }, showSearch && /* @__PURE__ */ React.createElement("div", { className: "sp-search" }, /* @__PURE__ */ React.createElement("span", { className: "sp-search-icon" }, /* @__PURE__ */ React.createElement(SearchIcon, null)), /* @__PURE__ */ React.createElement("label", { className: "sp-sr", htmlFor: "sp-search-input" }, "Search courses"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        id: "sp-search-input",
+        className: "sp-input",
+        type: "search",
+        placeholder: "Search courses or categories\u2026",
+        value: query,
+        onChange: (event) => setQuery(event.target.value)
+      }
+    )), showSort && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { className: "sp-sr", htmlFor: "sp-sort-select" }, "Sort courses"), /* @__PURE__ */ React.createElement(
+      "select",
+      {
+        id: "sp-sort-select",
+        className: "sp-select",
+        value: sortMode,
+        onChange: (event) => setSortMode(event.target.value)
+      },
+      /* @__PURE__ */ React.createElement("option", { value: "default" }, "Featured"),
+      /* @__PURE__ */ React.createElement("option", { value: "price-asc" }, "Price: low to high"),
+      /* @__PURE__ */ React.createElement("option", { value: "price-desc" }, "Price: high to low")
+    ))), courses.status === "ready" && visibleCourses.length > 0 && /* @__PURE__ */ React.createElement("p", { className: "sp-count", role: "status", "aria-live": "polite" }, "Showing ", visibleCourses.length, " ", visibleCourses.length === 1 ? "course" : "courses"), /* @__PURE__ */ React.createElement("div", { "aria-busy": courses.status === "loading" }, renderBody()));
+  }
+  addPropertyControls(SkillpathCourses, {
+    // The two that carry real weight:
+    //
+    // accentColor, because theming is the first thing a designer asks for and it
+    // is the one thing they cannot reach from outside a code component — it
+    // drives the pills, buttons, focus rings and card hover in one move.
+    //
+    // fallbackRegion, because it is a business decision rather than a technical
+    // one. When the country lookup fails, somebody has to decide which currency
+    // a stranger sees, and that answer depends on where the audience actually is.
+    // It belongs to whoever owns the page, not to whoever wrote the component.
+    accentColor: {
+      type: ControlType.Color,
+      title: "Accent",
+      defaultValue: "#4F3CE8"
+    },
+    fallbackRegion: {
+      type: ControlType.Enum,
+      title: "Fallback Region",
+      options: ["IN", "US"],
+      optionTitles: ["India (\u20B9)", "United States ($)"],
+      defaultValue: "IN",
+      description: "Currency to assume when the country lookup fails."
+    },
+    title: {
+      type: ControlType.String,
+      title: "Heading",
+      defaultValue: "Courses built to be finished"
+    },
+    subtitle: {
+      type: ControlType.String,
+      title: "Subheading",
+      displayTextArea: true,
+      defaultValue: "Practical, self-paced programmes taught by people who do the work. Live pricing, updated for your region."
+    },
+    maxCourses: {
+      type: ControlType.Number,
+      title: "Max Cards",
+      min: 0,
+      max: 12,
+      step: 1,
+      displayStepper: true,
+      defaultValue: 0,
+      description: "0 shows every course the API returns."
+    },
+    showSearch: {
+      type: ControlType.Boolean,
+      title: "Search",
+      defaultValue: true
+    },
+    showSort: {
+      type: ControlType.Boolean,
+      title: "Sort",
+      defaultValue: true
+    }
+  });
+  window.SkillpathCourses = SkillpathCourses;
+})();
+
+
+/* ---- SkillpathFooter.tsx ---- */
+(function() {
+  const { useLayoutEffect, useEffect } = React;
+  const addPropertyControls = () => {
+  }, ControlType = new Proxy({}, { get: () => "stub" });
+  const STYLE_ID = "skillpath-footer-styles";
+  const STYLES = `
+.spf-root {
+  --spf-ink: #12100E;
+  --spf-muted: #6B6560;
+  --spf-line: rgba(18, 16, 14, 0.10);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--spf-muted);
+  width: 100%;
+  box-sizing: border-box;
+  border-top: 1px solid var(--spf-line);
+  padding-top: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 32px;
+  font-size: 14px;
+}
+.spf-root *, .spf-root *::before, .spf-root *::after { box-sizing: border-box; }
+
+.spf-brand { font-weight: 650; color: var(--spf-ink); font-size: 15px; letter-spacing: -0.01em; }
+
+.spf-links { display: flex; flex-wrap: wrap; gap: 8px 28px; list-style: none; margin: 0; padding: 0; }
+.spf-link {
+  color: var(--spf-muted); text-decoration: none;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+.spf-link:hover { color: var(--spf-ink); }
+.spf-link:focus-visible { outline: 2px solid var(--spf-accent); outline-offset: 3px; color: var(--spf-ink); }
+
+.spf-copy { margin: 0; }
+
+/* Below ~600px the row stacks and centres rather than squeezing three links
+   into a line that wraps mid-word. */
+@media (max-width: 600px) {
+  .spf-root { flex-direction: column; text-align: center; justify-content: center; }
+  .spf-links { justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spf-root * { transition: none !important; }
+}
+`;
+  const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+  function useStyleSheet() {
+    useIsomorphicLayoutEffect(() => {
+      if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
+      const tag = document.createElement("style");
+      tag.id = STYLE_ID;
+      tag.textContent = STYLES;
+      document.head.appendChild(tag);
+    }, []);
+  }
+  function SkillpathFooter({
+    brand = "Skillpath",
+    linkOneLabel = "About",
+    linkOneUrl = "#",
+    linkTwoLabel = "Contact",
+    linkTwoUrl = "#",
+    linkThreeLabel = "Privacy",
+    linkThreeUrl = "#",
+    accentColor = "#4F3CE8",
+    style
+  }) {
+    useStyleSheet();
+    const links = [
+      { label: linkOneLabel, url: linkOneUrl },
+      { label: linkTwoLabel, url: linkTwoUrl },
+      { label: linkThreeLabel, url: linkThreeUrl }
+    ].filter((link) => link.label);
+    const rootStyle = { ...style, ["--spf-accent"]: accentColor };
+    return /* @__PURE__ */ React.createElement("footer", { className: "spf-root", style: rootStyle }, /* @__PURE__ */ React.createElement("span", { className: "spf-brand" }, brand), /* @__PURE__ */ React.createElement("nav", { "aria-label": "Footer" }, /* @__PURE__ */ React.createElement("ul", { className: "spf-links" }, links.map((link) => /* @__PURE__ */ React.createElement("li", { key: link.label }, /* @__PURE__ */ React.createElement("a", { className: "spf-link", href: link.url || "#" }, link.label))))), /* @__PURE__ */ React.createElement("p", { className: "spf-copy" }, "\xA9 ", (/* @__PURE__ */ new Date()).getFullYear(), " ", brand, ". All rights reserved."));
+  }
+  addPropertyControls(SkillpathFooter, {
+    accentColor: { type: ControlType.Color, title: "Accent", defaultValue: "#4F3CE8" },
+    brand: { type: ControlType.String, title: "Brand", defaultValue: "Skillpath" },
+    linkOneLabel: { type: ControlType.String, title: "Link 1", defaultValue: "About" },
+    linkOneUrl: { type: ControlType.Link, title: "  \u21B3 URL" },
+    linkTwoLabel: { type: ControlType.String, title: "Link 2", defaultValue: "Contact" },
+    linkTwoUrl: { type: ControlType.Link, title: "  \u21B3 URL" },
+    linkThreeLabel: { type: ControlType.String, title: "Link 3", defaultValue: "Privacy" },
+    linkThreeUrl: { type: ControlType.Link, title: "  \u21B3 URL" }
+  });
+  window.SkillpathFooter = SkillpathFooter;
+})();
+</script>
+<script>const { useState } = React;
+const MODES = [
+  { id: "live", label: "Live API", hint: "Real responses, including its real ~35% failure rate." },
+  { id: "slow", label: "Slow network", hint: "2.5s delay, so the skeleton loaders stay on screen." },
+  { id: "courses-error", label: "Courses fail", hint: "Course endpoint always 500s. Retries, then the error state." },
+  { id: "country-error", label: "Country fails only", hint: "Courses load, currency lookup does not. The judgement case." },
+  { id: "both-error", label: "Both fail", hint: "Nothing loads at all." },
+  { id: "empty", label: "Empty catalogue", hint: "A valid 200 with zero courses." }
+];
+function Preview() {
+  const [mode, setMode] = useState("live");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [accent, setAccent] = useState("#4F3CE8");
+  function choose(next) {
+    window.__setFaultMode(next);
+    setMode(next);
+    setReloadKey((k) => k + 1);
+  }
+  const active = MODES.find((m) => m.id === mode);
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(
+      "div",
+      { className: "panel" },
+      React.createElement(
+        "div",
+        { className: "panel-row" },
+        React.createElement("span", { className: "panel-label" }, "Preview harness"),
+        React.createElement("span", { className: "panel-note" }, "Not part of the component \u2014 this page wraps fetch to force each state.")
+      ),
+      React.createElement(
+        "div",
+        { className: "panel-row" },
+        MODES.map(
+          (m) => React.createElement("button", {
+            key: m.id,
+            className: "chip" + (m.id === mode ? " chip-on" : ""),
+            onClick: () => choose(m.id)
+          }, m.label)
+        ),
+        React.createElement("button", { className: "chip chip-reload", onClick: () => setReloadKey((k) => k + 1) }, "\u21BB Reload"),
+        React.createElement(
+          "label",
+          { className: "swatch" },
+          "Accent",
+          React.createElement("input", {
+            type: "color",
+            value: accent,
+            onChange: (e) => setAccent(e.target.value)
+          })
+        )
+      ),
+      React.createElement("p", { className: "panel-hint" }, active.hint)
+    ),
+    React.createElement(
+      "main",
+      { className: "page" },
+      React.createElement(
+        "section",
+        { className: "band band-hero" },
+        React.createElement(window.SkillpathHero, { accentColor: accent })
+      ),
+      React.createElement(
+        "section",
+        { className: "band", id: "courses" },
+        React.createElement(window.SkillpathCourses, { key: reloadKey, accentColor: accent })
+      ),
+      React.createElement(
+        "section",
+        { className: "band band-footer" },
+        React.createElement(window.SkillpathFooter, { accentColor: accent })
+      )
+    )
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(Preview));
+</script>
+</body>
+</html>
