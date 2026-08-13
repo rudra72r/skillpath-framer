@@ -1,5 +1,16 @@
 # Skillpath — Framer code components
 
+[![Tests](https://github.com/rudra72r/skillpath-framer/actions/workflows/test.yml/badge.svg)](https://github.com/rudra72r/skillpath-framer/actions/workflows/test.yml)
+
+### ▸ [Open the live demo](https://rudra72r.github.io/skillpath-framer/)
+
+Same component the Framer page runs, with a bar across the top that forces each
+failure state on demand — slow network, courses failing, **country failing while
+courses succeed**, both failing, empty catalogue — instead of waiting for the API's
+35% failure rate to produce one.
+
+---
+
 A landing page for a fictional learning platform. The courses section pulls live
 data from a deliberately unreliable API; the hero and footer are the frame around it.
 

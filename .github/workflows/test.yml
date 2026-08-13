@@ -1,0 +1,45 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # The course API is flaky by design, so a weekly run catches the case where it
+  # changes shape rather than simply failing.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Price math, response parsing and the retry policy. Also formats every
+      # price from a live API response — that part retries and then skips rather
+      # than failing the build, since the API is expected to be unreliable.
+      - name: Logic and price math
+        run: npm run verify
+
+      # Mounts the component and walks every state, including server rendering.
+      # Fully stubbed, so this one is deterministic.
+      - name: Rendering and states
+        run: npm test
+
+      # Catches the case where the components change but the published demo was
+      # not rebuilt from them.
+      - name: Demo page is up to date with the components
+        run: |
+          npm run preview
+          git diff --exit-code -- docs/index.html \
+            || (echo "::error::docs/index.html is stale — run 'npm run preview' and commit the result." && exit 1)
